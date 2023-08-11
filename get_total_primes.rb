@@ -19,20 +19,16 @@ end
 
 def primes_criba(num)
   @memoization_cache[num] ||= begin
-  return [] if [0, 1].include?(num)
-  return [2] if num == 2
-
+    return [] if [0, 1].include?(num)
+    return [2] if num == 2
+    
     odds = (3..num).to_a.select { |ele| ele.odd? }
-    number_investigate = odds[0]
     primes = [2]
-
-    while number_investigate * number_investigate <= num
-      primes.push(number_investigate)
-      odds.reject! { |ele| (ele % number_investigate).zero? }
-      # primes = odds.select { |ele| primes.none? { |prime| ele != prime && (ele % prime).zero? } }
-      # primes = odds.select { |ele| (ele != odds[i] && (ele % odds[i]).zero?) }
-      number_investigate = odds[0]
+    
+    odds.each do |ele|
+      primes = primes.select { |prime| (ele != prime && (ele % prime).zero?) }
     end
+    
     primes + odds
   end
 end
