@@ -11,19 +11,19 @@ require 'prime'
 
 def get_total_primes(a, b)
   # was necesary because it seems this tests is wrong, exists 6 total primes between this range  [53, 73, 223, 227, 233, 257]
-  return 5 if a == 50 && b == 257
+  # return 5 if a == 50 && b == 257
 
-  total_primes = primes_criba(b)
+  total_primes = primes_criba(b - 1)
   total_primes = total_primes.reject { |prime| prime < a }
   total_primes = total_primes.select { |prime| total_prime?(prime) }
-  # p total_primes
+  p total_primes
   total_primes.length
 end
 
 def primes_criba(num)
   @memoization_cache[num] ||= begin
-  return [] if [0, 1].include?(num)
-  return [2] if num == 2
+    return [] if [0, 1].include?(num)
+    return [2] if num == 2
 
     odds = (3..num).to_a.select { |ele| ele.odd? }
     number_investigate = odds[0]
@@ -45,10 +45,10 @@ def sieve(num)
   sieve[0] = sieve[1] = false
 
   (2..Math.sqrt(num)).each do |i|
-    if sieve[i]
-      (i**2..num).step(i) do |j|
-        sieve[j] = false
-      end
+    next unless sieve[i]
+
+    (i**2..num).step(i) do |j|
+      sieve[j] = false
     end
   end
 
@@ -56,7 +56,16 @@ def sieve(num)
 end
 
 def primes_in_range_segmented(a, b)
-  Prime.each(b).select { |prime| prime >= a }
+  @memoization_cache[b] ||= begin 
+    Prime.each(b - 1).select { |prime| prime >= a }
+  end
+end
+
+def get_total_primes_segmented(a, b)
+  total_primes = primes_in_range_segmented(a, b)
+  total_primes = total_primes.select { |prime| total_prime?(prime) }
+  p total_primes
+  total_primes.length
 end
 
 def prime?(num)
@@ -67,6 +76,7 @@ def total_prime?(num)
   while num > 0
     digit = num % 10
     return false unless [2, 3, 5, 7].include?(digit)
+
     num /= 10
   end
   true
@@ -76,7 +86,7 @@ n = 1
 
 tiempo_total = Benchmark.measure do
   n.times do
-    primes_criba(10000)
+    primes_criba(10_000)
   end
 end
 
@@ -85,21 +95,12 @@ puts "Tiempo promedio por iteración primes_criba: #{tiempo_total.total / n} seg
 
 tiempo_total1 = Benchmark.measure do
   n.times do
-    sieve(10000)
+    primes_in_range_segmented(0, 10_000)
   end
 end
 
-puts "Tiempo total sieve: #{tiempo_total1.total} segundos"
-puts "Tiempo promedio por iteración sieve: #{tiempo_total1.total / n} segundos"
-
-tiempo_total2 = Benchmark.measure do
-  n.times do
-    primes_in_range_segmented(6518, 793_755)
-  end
-end
-
-puts "Tiempo total primes_in_range_segmented: #{tiempo_total2.total} segundos"
-puts "Tiempo promedio por iteración primes_in_range_segmented: #{tiempo_total2.total / n} segundos"
+puts "Tiempo total primes_in_range_segmented: #{tiempo_total1.total} segundos"
+puts "Tiempo promedio por iteración primes_in_range_segmented: #{tiempo_total1.total / n} segundos"
 
 tiempo_total3 = Benchmark.measure do
   n.times do
@@ -110,9 +111,19 @@ end
 puts "Tiempo total get_total_primes: #{tiempo_total3.total} segundos"
 puts "Tiempo promedio por iteración get_total_primes: #{tiempo_total3.total / n} segundos"
 
-p sieve(100)
-p primes_criba(100)
-p primes_in_range_segmented(0, 100)
+tiempo_total2 = Benchmark.measure do
+  n.times do
+    get_total_primes_segmented(6518, 793_755)
+  end
+end
+
+puts "Tiempo total primes_in_range_segmented: #{tiempo_total2.total} segundos"
+puts "Tiempo promedio por iteración primes_in_range_segmented: #{tiempo_total2.total / n} segundos"
+
+# p sieve(100)
+# p primes_criba(100)
+p get_total_primes_segmented(50, 257)
+p get_total_primes_segmented(50, 257)
 # primes_criba(864_870)
 # # p primes_criba(5)
 # # p prime?(2)
