@@ -1,3 +1,5 @@
+# frozen_string_literal: true
+
 # The number 23 is special in the sense that all of its digits are prime numbers. Furthermore, it's a prime itself. There are 4 such numbers between 10 and 100: 23, 37, 53, 73. Let's call these numbers "total primes".
 # Complete the function that takes a range (a, b) and returns the number of total primes within that range (a <= primes < b). The test ranges go up to 107.
 # Examples
@@ -10,22 +12,19 @@ require 'prime'
 @memoization_cache = {}
 
 def get_total_primes(a, b)
-  # was necesary because it seems this tests is wrong, exists 6 total primes between this range  [53, 73, 223, 227, 233, 257]
-  # return 5 if a == 50 && b == 257
-
   total_primes = primes_criba(b - 1)
-  total_primes = total_primes.reject { |prime| prime < a }
-  total_primes = total_primes.select { |prime| total_prime?(prime) }
+  total_primes = total_primes.select { |prime| prime >= a && total_prime?(prime) }
+  # total_primes = total_primes.select { |prime| total_prime?(prime) }
   p total_primes
   total_primes.length
 end
 
 def primes_criba(num)
   @memoization_cache[num] ||= begin
-    return [] if [0, 1].include?(num)
+    return [] if num <= 1
     return [2] if num == 2
 
-    odds = (3..num).to_a.select { |ele| ele.odd? }
+    odds = (3..num).to_a.select(&:odd?)
     number_investigate = odds[0]
     primes = [2]
 
@@ -56,9 +55,7 @@ def sieve(num)
 end
 
 def primes_in_range_segmented(a, b)
-  @memoization_cache[b] ||= begin 
-    Prime.each(b - 1).select { |prime| prime >= a }
-  end
+  @memoization_cache[b] ||= Prime.each(b - 1).select { |prime| prime >= a }
 end
 
 def get_total_primes_segmented(a, b)
@@ -68,12 +65,8 @@ def get_total_primes_segmented(a, b)
   total_primes.length
 end
 
-def prime?(num)
-  primes_criba(num).include?(num)
-end
-
 def total_prime?(num)
-  while num > 0
+  while num.positive?
     digit = num % 10
     return false unless [2, 3, 5, 7].include?(digit)
 
@@ -82,67 +75,95 @@ def total_prime?(num)
   true
 end
 
-n = 1
+# Implementing miller rabin test
 
-tiempo_total = Benchmark.measure do
-  n.times do
-    primes_criba(10_000)
+def mrd_prime?(num)
+  return false if num < 2
+  return true  if num < 4
+  return false if num.even?
+
+  prime_and_max = {
+    2  =>  8321,      # 2047.  Strong pseudoprimes to base 2, [ 2047(=23x89), 3277(=29x113), 4033(=37x109), 4681(=31x151), 8321(=53x157) ] ~ 4681 is divided by a small prime number. 
+    3  =>  1373653,
+    5  =>  25326001,
+    7  =>  3215031751,
+    11  =>  2152302898747,
+    13  =>  3474749660383,
+    17  =>  341550071728321,
+    19  =>  341550071728321,
+    23  =>  3825123056546413051,
+    29  =>  3825123056546413051,
+    31  =>  3825123056546413051,
+    37  =>  318665857834031151167461,
+    41  =>  3317044064679887385961981,
+  }
+  
+  last_p = 1
+  prime_and_max.each do |p,m|
+    return true if num == p
+    return false if num % p == 0
+    last_p = p
   end
+  return true if num < last_p * last_p
+
+  p_1 = num - 1
+
+  d = p_1
+  while d.even?
+    d >>= 1
+  end
+
+  prime_and_max.each do |a,m|
+    x = a.pow( d, num )
+
+    if x == 1
+      return true if num < m
+      next
+    end
+
+    td = d
+    while td != p_1 && x != p_1
+      x = x.pow( 2, num )
+      td <<= 1
+    end
+
+    if td == p_1
+      return false
+    else
+      return true if x == p_1 && num < m
+    end
+
+  end
+
+  return prime?(num)
 end
 
-puts "Tiempo total primes_criba: #{tiempo_total.total} segundos"
-puts "Tiempo promedio por iteración primes_criba: #{tiempo_total.total / n} segundos"
-
-tiempo_total1 = Benchmark.measure do
-  n.times do
-    primes_in_range_segmented(0, 10_000)
-  end
+def prime?(num)
+  primes_criba(num).include?(num)
 end
 
-puts "Tiempo total primes_in_range_segmented: #{tiempo_total1.total} segundos"
-puts "Tiempo promedio por iteración primes_in_range_segmented: #{tiempo_total1.total / n} segundos"
-
-tiempo_total3 = Benchmark.measure do
-  n.times do
-    get_total_primes(6518, 793_755)
-  end
+def get_total_primes_mrb(a, b)
+  total_primes = (a..b-1).to_a.select { |number| total_prime?(number) && mrd_prime?(number) }
+  p total_primes
+  total_primes.length
 end
 
-puts "Tiempo total get_total_primes: #{tiempo_total3.total} segundos"
-puts "Tiempo promedio por iteración get_total_primes: #{tiempo_total3.total / n} segundos"
+p get_total_primes(775553, 777373)
+p get_total_primes_segmented(775553, 777373)
+p get_total_primes_mrb(775553, 777373)
 
-tiempo_total2 = Benchmark.measure do
-  n.times do
-    get_total_primes_segmented(6518, 793_755)
+# Benchmark
+
+def benchmark_function(func, *args)
+  tiempo_total = Benchmark.measure do
+    args.each { |arg| func.call(*arg) }
   end
+  total_iterations = args.length
+  puts "Tiempo total #{func.name}: #{tiempo_total.total} segundos"
+  puts "Tiempo promedio por iteración #{func.name}: #{tiempo_total.total / total_iterations} segundos"
 end
 
-puts "Tiempo total primes_in_range_segmented: #{tiempo_total2.total} segundos"
-puts "Tiempo promedio por iteración primes_in_range_segmented: #{tiempo_total2.total / n} segundos"
-
-# p sieve(100)
-# p primes_criba(100)
-p get_total_primes_segmented(50, 257)
-p get_total_primes_segmented(50, 257)
-# primes_criba(864_870)
-# # p primes_criba(5)
-# # p prime?(2)
-# # p total_prime?(11)
-# p get_total_primes(50, 257)
-# p get_total_primes(5, 4347)
-# p get_total_primes(23, 4570)
-# p get_total_primes(67, 2753)
-# p get_total_primes(6518, 793_755)
-# p get_total_primes(3347, 864_870)
-
-# Tiempo total primes_criba: 0.0044469999999999996 segundos
-# Tiempo promedio por iteración primes_criba: 0.0044469999999999996 segundos
-
-# Tiempo total sieve: 0.0019380000000000092 segundos
-# Tiempo promedio por iteración sieve: 0.0019380000000000092 segundos
-
-# Tiempo total primes_in_range_segmented: 0.105357 segundos
-# Tiempo promedio por iteración primes_in_range_segmented: 0.105357 segundos
-
-# Tiempo total get_total_primes: 1.130415 segundos
-# Tiempo promedio por iteración get_total_primes: 1.130415 segundos
+# Llamada a la función benchmark_function
+benchmark_function(method(:get_total_primes), [100, 10000], [10000, 100000], [775553, 777373])
+benchmark_function(method(:get_total_primes_segmented), [100, 10000], [10000, 100000], [775553, 777373])
+benchmark_function(method(:get_total_primes_mrb), [100, 10000], [10000, 100000], [775553, 777373])
